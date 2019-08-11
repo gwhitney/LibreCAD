@@ -36,6 +36,8 @@
 #include "rs_arc.h"
 #include "rs_circle.h"
 #include "rs_line.h"
+#include "rs_font.h"
+#include "rs_fontlist.h"
 #include "rs_point.h"
 #include "rs_mtext.h"
 #include "rs_text.h"
@@ -1177,6 +1179,13 @@ void Doc_plugin_interface::setCurrentLayerProperties(int c, QString const& w,
     }
 }
 
+void Doc_plugin_interface::getFontlist(QStringList* fonts) {
+    for (auto const& f: * RS_FONTLIST) {
+        if (fonts->contains(f->getFileName())) continue;
+	fonts->append(f->getFileName());
+    }
+}
+	
 bool Doc_plugin_interface::getPoint(QPointF *point, const QString& mesage,
 									QPointF *base){
     bool status = false;

@@ -188,6 +188,9 @@ public:
         point = p;
         bulge = b;
     }
+    Plug_VertexData() {
+        bulge = 0.0;
+    }
     QPointF point;
     double bulge;
 };
@@ -436,6 +439,12 @@ public:
     virtual void setCurrentLayerProperties(int c, DPI::LineWidth w, DPI::LineType t) = 0;
 	virtual void setCurrentLayerProperties(int c, QString const& w,
 										   QString const& t) = 0;
+
+    //! Get font list
+    /*! Get a list of all fonts in the current document.
+     * \param list a pointer to QStringList to receive the font list
+     */
+    virtual void getFontlist(QStringList* fonts) = 0;
 
     //! Gets a point.
     /*! Prompt message or an default message to the user asking for a point.
