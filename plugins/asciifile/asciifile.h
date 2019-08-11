@@ -51,7 +51,7 @@ class dibPunto : public QDialog
     Q_OBJECT
 
 public:
-    explicit dibPunto(QWidget *parent = 0);
+  explicit dibPunto(QWidget *parent = 0, Document_Interface* doc = 0);
     ~dibPunto();
     void SetupUI(QWidget *parent);
 
@@ -59,13 +59,15 @@ public slots:
     void dptFile();
     void procesFile(Document_Interface *doc);
     void checkAccept();
+    void showHelp();
 
 private:
     void readSettings();
     void writeSettings();
     void procesfileODB(QFile* file, QString sep);
-    void procesfileNormal(QFile* file, QString sep, QString::SplitBehavior skip = QString::KeepEmptyParts);
+    void procesfileNormal(QFile* file, QString sep, QString::SplitBehavior skip = QString::KeepEmptyParts, bool multi = false);
     void drawLine();
+    void drawPoly();
     void draw2D();
     void draw3D();
     void drawNumber();
@@ -84,7 +86,10 @@ private:
     textBox *ptcode;
     QLineEdit *fileedit;
     QComboBox *formatedit;
-    QCheckBox *connectPoints;
+    QComboBox *separedit;
+    QComboBox *connectedit;
+    QCheckBox *closepoly;
+    QCheckBox *polyperline;
     QList<pointData*> dataList;
 
     Document_Interface *currDoc;
@@ -140,12 +145,12 @@ class textBox : public pointBox
     Q_OBJECT
 
 public:
-    textBox(const QString & title, const QString & label, QWidget * parent = 0 );
+    textBox(const QString & title, const QString & label,
+	    const QStringList& fonts, QWidget * parent = 0 );
     ~textBox();
     void setPos(DPT::txtposition p) { img->setPos(p); }
     QString getStyleStr() { return combostyle->currentText();}
-    void setStyleIdx(int idx) { combostyle->setCurrentIndex(idx);}
-    int getStyleIdx() { return combostyle->currentIndex();}
+    void setStyleStr(const QString& sty);
     void setHeight(double data) { heightedit->setText( QString::number(data,'f'));}
 //    double getHeight();
     QString getHeightStr() { return heightedit->text();}
@@ -166,11 +171,12 @@ private:
 class pointData
 {
 public:
-    QString number;
+    int number;
     QString x;
     QString y;
     QString z;
     QString code;
+    bool endsPoly;
 };
 /***********/
-#endif // ECHOPLUG_H
+#endif // DRAWPOINTS_H

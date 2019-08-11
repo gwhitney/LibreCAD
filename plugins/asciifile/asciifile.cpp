@@ -45,7 +45,7 @@ void AsciiFile::execComm(Document_Interface *doc,
                              QWidget *parent, QString cmd)
 {
     Q_UNUSED(cmd);
-    dibPunto pdt(parent);
+    dibPunto pdt(parent, doc);
     int result = pdt.exec();
     if (result == QDialog::Accepted)
         pdt.procesFile(doc);
@@ -189,13 +189,12 @@ pointBox::~pointBox()
 
 }
 /*****************************/
-textBox::textBox(const QString & title, const QString & label, QWidget * parent) :
+textBox::textBox(const QString & title, const QString & label,
+		 const QStringList& fonts, QWidget * parent) :
     pointBox(title, label, parent)
 {
     combostyle = new QComboBox();
-    QStringList txtstyles;
-     txtstyles << "txt" << "simplex" << "romans";
-    combostyle->addItems(txtstyles);
+    combostyle->addItems(fonts);
     QDoubleValidator *val = new QDoubleValidator(0);
     val->setBottom ( 0.0 );
     heightedit = new QLineEdit();
@@ -221,13 +220,17 @@ textBox::~textBox()
 
 }
 
+void textBox::setStyleStr(const QString& sty)
+{
+  combostyle->setCurrentIndex(0);
+  combostyle->setCurrentText(sty);
+}
 
 /*****************************/
-dibPunto::dibPunto(QWidget *parent) :  QDialog(parent)
+dibPunto::dibPunto(QWidget *parent, Document_Interface* doc) :  QDialog(parent)
 {
 //    setParent(parent);
     setWindowTitle(tr("Read ascii points"));
-    QStringList txtformats;
 
     QGridLayout *mainLayout = new QGridLayout;
 //readSettings();
@@ -237,54 +240,91 @@ dibPunto::dibPunto(QWidget *parent) :  QDialog(parent)
     QHBoxLayout *lofile = new QHBoxLayout;
     lofile->addWidget(filebut);
     lofile->addWidget(fileedit);
-    mainLayout->addLayout(lofile, 0, 0);
+    uint row = 0;
+    mainLayout->addLayout(lofile, row, 0);
 
     QLabel *formatlabel = new QLabel(tr("Format:"));
     formatedit = new QComboBox();
-    txtformats << tr("Space Separator") << tr("Tab Separator") << tr("Comma Separator") << tr("Space in Columns") << tr("*.odb for Psion 2");
+    QStringList txtformats;
+    txtformats << tr("One point per line") << tr("Multiple points per line")
+	       << tr("*.odb for Psion 2");
     formatedit->addItems(txtformats);
-    connectPoints = new QCheckBox(tr("Connect points"));
 
-    QHBoxLayout *loformat = new QHBoxLayout;
-    loformat->addWidget(formatlabel);
-    loformat->addWidget(formatedit);
-    loformat->addWidget(connectPoints);
-    mainLayout->addLayout(loformat, 0, 1);
+    QHBoxLayout *foformat = new QHBoxLayout;
+    foformat->addStretch();
+    foformat->addWidget(formatlabel);
+    foformat->addWidget(formatedit);
+    mainLayout->addLayout(foformat, row++, 1);
+
+    QLabel *seplabel = new QLabel(tr("Separator:"));
+    separedit = new QComboBox();
+    QStringList sepformats;
+    sepformats << tr("Comma") << tr("Tab") << tr("Space") << tr("Spaces");
+    separedit->addItems(sepformats);
+    polyperline = new QCheckBox(tr("1 poly / file line"));
+
+    QHBoxLayout *sepformat = new QHBoxLayout;
+    sepformat->addWidget(seplabel);
+    sepformat->addWidget(separedit);
+    sepformat->addWidget(polyperline);
+    mainLayout->addLayout(sepformat, row, 1);
+
+    QLabel *connectlabel = new QLabel(tr("Connect:"));
+    connectedit = new QComboBox();
+    QStringList connections;
+    connections << tr("No (points only)") << tr("With Lines")
+		<< tr("As Polyline");
+    connectedit->addItems(connections);
+    closepoly = new QCheckBox(tr("Close Polylines"));
+
+    QHBoxLayout *coformat = new QHBoxLayout;
+    coformat->addWidget(connectlabel);
+    coformat->addWidget(connectedit);
+    coformat->addWidget(closepoly);
+    coformat->addSpacing(20);
+    mainLayout->addLayout(coformat, row++, 0);
 
     pt2d = new pointBox(tr("2D Point"),tr("Draw 2D Point"));
     pt3d = new pointBox(tr("3D Point"),tr("Draw 3D Point"));
-    ptnumber = new textBox(tr("Point Number"),tr("Draw point number"));
-    ptelev = new textBox(tr("Point Elevation"),tr("Draw point elevation"));
-    ptcode = new textBox(tr("Point Code"),tr("Draw point code"));
+    QStringList fontl;
+    doc->getFontlist(&fontl);
+    ptnumber = new textBox(tr("Point Number"), tr("Draw point number"), fontl);
+    ptelev = new textBox(tr("Point Elevation"), tr("Draw point elevation"),
+			 fontl);
+    ptcode = new textBox(tr("Point Code"), tr("Draw point code"), fontl);
     ptnumber->setPos(DPT::NO);
 
     QVBoxLayout *lo2d3d = new QVBoxLayout;
 
     lo2d3d->addWidget(pt2d);
     lo2d3d->addWidget(pt3d);
-    mainLayout->addLayout(lo2d3d, 1, 0);
+    mainLayout->addLayout(lo2d3d, row, 0);
 
-    mainLayout->addWidget(ptnumber, 1, 1);
-    mainLayout->addWidget(ptelev, 2, 0);
-    mainLayout->addWidget(ptcode, 2, 1);
+    mainLayout->addWidget(ptnumber, row++, 1);
+    mainLayout->addWidget(ptelev, row, 0);
+    mainLayout->addWidget(ptcode, row++, 1);
 
     QHBoxLayout *loaccept = new QHBoxLayout;
     QPushButton *acceptbut = new QPushButton(tr("Accept"));
+    QPushButton *helpbut = new QPushButton(tr("Help"));
+    loaccept->addStretch();
+    loaccept->addWidget(helpbut);
     loaccept->addStretch();
     loaccept->addWidget(acceptbut);
-    mainLayout->addLayout(loaccept, 3, 0);
+    mainLayout->addLayout(loaccept, row, 0);
 
     QPushButton *cancelbut = new QPushButton(tr("Cancel"));
     QHBoxLayout *locancel = new QHBoxLayout;
     locancel->addWidget(cancelbut);
     locancel->addStretch();
-    mainLayout->addLayout(locancel, 3, 1);
+    mainLayout->addLayout(locancel, row++, 1);
 
     setLayout(mainLayout);
     readSettings();
 
     connect(cancelbut, SIGNAL(clicked()), this, SLOT(reject()));
     connect(acceptbut, SIGNAL(clicked()), this, SLOT(checkAccept()));
+    connect(helpbut, SIGNAL(clicked()), this, SLOT(showHelp()));
 
     connect(filebut, SIGNAL(clicked()), this, SLOT(dptFile()));
 }
@@ -294,12 +334,54 @@ void dibPunto::checkAccept()
 
     errmsg.clear();
     if (failGUI(&errmsg)) {
-        QMessageBox::critical ( this, "Sample plugin", errmsg );
+        QMessageBox::critical ( this, "Asciifile plugin", errmsg );
         errmsg.clear();
         return;
     }
     writeSettings();
     accept();
+}
+
+void dibPunto::showHelp()
+{
+  QMessageBox
+    helpbox(QMessageBox::Information, tr("asciifile help"),
+	    tr("This plugin plots points, the coordinates of which are"
+	       " read from an ascii file."),
+	    QMessageBox::Ok, this);
+  helpbox.setDetailedText(
+   tr(R"HELP(There are currently three formats for the file read by this plugin:
+(A) One point per line.  (B) Multiple points per line.
+(C) Organizer database (.odb file) for the Psion 2
+For (A)/(B), one can choose the character(s) that separate coordinates
+within a string that represents a point: comma, tab, space, or
+multiple spaces. In (A), each line (with newline removed) is considered one
+point, and blank lines separate polys. In (B), each substring of a line that
+matches the representation of a point is extracted and interpreted as a point.
+Also in (B), polys may be separated by blank lines, or the points on each
+line may be treated as a poly (by checking the box). Format (C) is specialized,
+search for details online; currently the entire file is treated as a single
+poly.
+Points may be plotted by themselves, connected sequentially by lines, or each
+poly may be connected by a polyline (optionally closed if the box is checked).
+The option to plot 3D points is currently disabled pending 3D support in
+LibreCad; however, you may display the point's number, code, or
+elevation (z-coordinate) next to each point, in a configurable layer, size,
+and location relative to the point.
+These additional pieces of information are determined from the information
+in the file as follows. Each point representation read may have from 2 to 5
+coordinates; depending on how many are present, they are interpreted in order
+as follows:
+2: X,Y;   3: PT#,X,Y;   4: PT#,X,Y,Z;   5: PT#,X,Y,Z,CODE
+where "PT#" represents the point's number, and CODE can be an arbitrary string.
+If PT# is not present, the point number is simply incremented.
+
+
+
+)HELP")); // leave blank lines above, otherwise end of help invisible
+  helpbox.setStyleSheet("QMessageBoxDetailsText {min-width:270em;}"
+			" QTextEdit {min-height:30ex}");
+  helpbox.exec();
 }
 
 void dibPunto::dptFile()
@@ -310,6 +392,13 @@ void dibPunto::dptFile()
 
 bool dibPunto::failGUI(QString *msg)
 {
+//Warning, can change adding or reordering "separedit" or "formatedit"
+    if (separedit->currentIndex() < 0 or separedit->currentIndex() > 3) {
+        msg->insert(0, tr("Impossible separator chosen")); return true;
+    }
+    if (formatedit->currentIndex() == 2 and separedit->currentIndex() != 1) {
+        msg->insert(0, tr("Separator for odb file must be TAB")); return true;
+    }
     if (pt2d->checkOn() == true) {
         if (pt2d->getLayer().isEmpty()) {msg->insert(0, tr("Point 2D layer is empty")); return true;}
     }
@@ -337,24 +426,19 @@ bool dibPunto::failGUI(QString *msg)
 void dibPunto::procesFile(Document_Interface *doc)
 {
     QString sep;
-    QMessageBox::information(this, "Info", "dibpunto procesFile");
+    QString::SplitBehavior skip = QString::KeepEmptyParts;
+
+    QMessageBox msgbox(QMessageBox::Information, tr("asciifile plugin"),
+		       tr("Processing file..."));
+    msgbox.show();
     currDoc = doc;
 
-//Warning, can change adding or reordering "formatedit"
-    QString::SplitBehavior skip = QString::KeepEmptyParts;
-    switch (formatedit->currentIndex()) {
-    case 0:
-        sep = " ";
-        break;
-    case 3:
-        sep = " ";
-        skip = QString::SkipEmptyParts;
-        break;
-    case 2:
-        sep = ",";
-        break;
-    default:
-        sep = "\t";
+//Warning, can change adding or reordering "separedit"
+    switch (separedit->currentIndex()) {
+    case 0: sep = ","; break;
+    case 1: sep = "\t"; break;
+    case 3: skip = QString::SkipEmptyParts; // FALL THROUGH
+    case 2: sep = " "; break;
     }
     if (!QFile::exists(fileedit->text()) ) {
         QMessageBox::critical ( this, "DibPunto", QString(tr("The file %1 not exist")).arg(fileedit->text()) );
@@ -367,10 +451,11 @@ void dibPunto::procesFile(Document_Interface *doc)
     }
 
 //Warning, can change adding or reordering "formatedit"
-    if (formatedit->currentIndex() == 4)
-        procesfileODB(&infile, sep);
-    else
-        procesfileNormal(&infile, sep, skip);
+    switch (formatedit->currentIndex()) {
+    case 1: procesfileNormal(&infile, sep, skip, true); break;
+    case 2: procesfileODB(&infile, sep); break;
+    default: procesfileNormal(&infile, sep, skip);
+    }
     infile.close ();
     QString currlay = currDoc->getCurrentLayer();
 
@@ -387,11 +472,14 @@ void dibPunto::procesFile(Document_Interface *doc)
 
     currDoc->setLayer(currlay);
     /* draw lines in current layer */
-    if ( connectPoints->isChecked() )
-        drawLine();
+    switch ( connectedit->currentIndex() ) {
+    case 1: drawLine(); break;
+    case 2: drawPoly(); break;
+    default: break;
+    }
 
     currDoc = NULL;
-
+    msgbox.close();
 }
 
 void dibPunto::drawLine()
@@ -415,6 +503,24 @@ void dibPunto::drawLine()
             currDoc->addLine(&prevP, &nextP);
             prevP = nextP;
         }
+    }
+}
+
+void dibPunto::drawPoly()
+{
+    std::vector<Plug_VertexData> pp;
+    for (int i = 0; i < dataList.size(); ++i) {
+      pointData *pd = dataList.at(i);
+      if (!pd->x.isEmpty() && !pd->y.isEmpty()) {
+	pp.resize(pp.size()+1);
+	pp.back().bulge = 0;
+	pp.back().point.setX(pd->x.toDouble());
+	pp.back().point.setY(pd->y.toDouble());
+      }
+      if (pd->endsPoly) {
+	currDoc->addPolyline(pp, closepoly->isChecked());
+	pp.resize(0);
+      }
     }
 }
 
@@ -514,11 +620,12 @@ void dibPunto::drawNumber()
     QString sty = ptnumber->getStyleStr();
     for (int i = 0; i < dataList.size(); ++i) {
         pointData *pd = dataList.at(i);
-        if (!pd->x.isEmpty() && !pd->y.isEmpty() && !pd->number.isEmpty()){
+        if (!pd->x.isEmpty() && !pd->y.isEmpty()) {
             newx = pd->x.toDouble() + incx;
             newy = pd->y.toDouble() + incy;
             QPointF pt(newx,newy);
-            currDoc->addText(pd->number, sty, &pt, ptnumber->getHeightStr().toDouble(), 0.0, ha, va);
+            currDoc->addText(QString::number(pd->number), sty, &pt,
+			     ptnumber->getHeightStr().toDouble(), 0.0, ha, va);
         }
     }
 }
@@ -577,6 +684,7 @@ void dibPunto::procesfileODB(QFile* file, QString sep)
         pd = new pointData;
         int i = 0;
         int j = data.size();
+	int ptnum = 0;
         if (i<j && data.at(i).compare("4")==0 ){
             i = i+2;
             if (i<j) pd->x = data.at(i); else pd->x = QString();
@@ -585,53 +693,76 @@ void dibPunto::procesfileODB(QFile* file, QString sep)
             i++;
             if (i<j) pd->z = data.at(i); else pd->z = QString();
             i++;
-            if (i<j) pd->number = data.at(i); else pd->number = QString();
+            if (i<j) {
+	      ptnum = data.at(i).toInt();
+	      pd->number = ptnum;
+	    } else pd->number = ++ptnum;
             i++;
             if (i<j) pd->code = data.at(i); else pd->code = QString();
         }
         dataList.append(pd);
     }
-
+    if (!dataList.isEmpty()) dataList.last()->endsPoly = true;
 }
-void dibPunto::procesfileNormal(QFile* file, QString sep, QString::SplitBehavior skip)
+
+static pointData* fieldsToPointData(const QStringList& data, int* ptnum)
 {
-    //    QString outname, sep;
-    QStringList data;
-    pointData *pd;
+    if (data.size() < 2) return NULL;
+
+    pointData* pd = new pointData;
+    pd->endsPoly = false;
+    switch (data.size()) {
+    case 2:
+        pd->number = ++(*ptnum);
+        pd->x = data.at(0);
+	pd->y = data.at(1);
+	return pd;
+    case 5: pd->code = data.at(4); // FALL THROUGH
+    case 4: pd->z = data.at(3); // FALL THROUGH
+    case 3:
+        *ptnum = data.at(0).toInt(); pd->number = *ptnum;
+        pd->x = data.at(1);
+	pd->y = data.at(2);
+    }
+    return pd;
+}
+
+void dibPunto::procesfileNormal(QFile* file, QString sep,
+				QString::SplitBehavior skip, bool multi)
+{
+    int ptnum = 0;
     while (!file->atEnd()) {
         QString line = file->readLine();
-		if(line.isEmpty()) continue;
-        line.remove ( line.size()-1, 1);
-        data = line.split(sep, skip);
-        pd = new pointData;
-        int i = 0;
-        switch(data.size()){
-        case 0:
-        case 1:
-            delete pd;
-            continue;
-
-            //allow reading in raw 2D ascii data in format:
-            // x y
-        case 2:
-            pd->x = data.at(0);
-            pd->y = data.at(1);
-            break;
-        default:
-        case 5:
-            pd->code=data.at(4);
-            // fall-through
-        case 4:
-            pd->z = data.at(3);
-            // fall-through
-        case 3:
-            pd->number = data.at(i);
-            pd->x = data.at(1);
-            pd->y = data.at(2);
-            break;
-        }
-        dataList.append(pd);
+	line.truncate(line.size()-1);
+	if (line.isEmpty()) {
+	    if (!dataList.isEmpty()) dataList.last()->endsPoly = true;
+	    continue;
+	}
+	QStringList ptex;
+	if (multi) {
+	    static QString dblre = "[+-]?\\d*[,.]?\\d+(?:[eE][+-]?\\d+)?";
+	    QRegularExpression
+	        pntre(dblre + "(?:[" + sep + "]+" + dblre + "){1,4}(?:["
+		            + sep + "]+\\w+)?");
+	    QRegularExpressionMatchIterator m = pntre.globalMatch(line);
+	    if (!m.hasNext() and !dataList.isEmpty())
+	         dataList.last()->endsPoly = true;
+	    while (m.hasNext()) {
+	         QRegularExpressionMatch pnt = m.next();
+		 ptex << pnt.captured(0);
+	    }
+	} else ptex << line;
+	for (QStringList::iterator p = ptex.begin(); p != ptex.end(); ++p) {
+	    pointData* pd = fieldsToPointData(p->split(sep, skip), &ptnum);
+	    if (pd == NULL) {
+	        if (!multi and !dataList.isEmpty())
+		    dataList.last()->endsPoly = true;
+	    } else dataList.append(pd);
+	}
+	if (polyperline->isChecked() and !dataList.isEmpty())
+	  dataList.last()->endsPoly = true;
     }
+    if (!dataList.isEmpty()) dataList.last()->endsPoly = true;
 }
 
 dibPunto::~dibPunto()
@@ -649,7 +780,10 @@ void dibPunto::readSettings()
     str = settings.value("lastfile").toString();
     fileedit->setText(str);
     formatedit->setCurrentIndex( settings.value("format", 0).toInt() );
-    connectPoints->setChecked( settings.value("connectpoints", false).toBool() );
+    separedit->setCurrentIndex( settings.value("separator", 0).toInt() );
+    connectedit->setCurrentIndex(settings.value("connectpoints", 0).toInt() );
+    closepoly->setChecked(settings.value("closepoly", false).toBool() );
+    polyperline->setChecked(settings.value("polyperline", false).toBool() );
     pt2d->setCheck( settings.value("draw2d", false).toBool() );
     str = settings.value("layer2d").toString();
     pt2d->setLayer(str);
@@ -665,9 +799,9 @@ void dibPunto::readSettings()
     ptcode->setCheck( settings.value("drawcode", false).toBool() );
     str = settings.value("layercode").toString();
     ptcode->setLayer(str);
-    ptelev->setStyleIdx( settings.value("styleelev", 0).toInt() );
-    ptnumber->setStyleIdx( settings.value("stylenumber", 0).toInt() );
-    ptcode->setStyleIdx(settings.value("stylecode", 0).toInt() );
+    ptelev->setStyleStr( settings.value("styleelev").toString() );
+    ptnumber->setStyleStr( settings.value("stylenumber").toString() );
+    ptcode->setStyleStr(settings.value("stylecode").toString() );
     ptelev->setHeight( settings.value("heightelev", 0.5).toDouble() );
     ptnumber->setHeight( settings.value("heightnumber", 0.5).toDouble() );
     ptcode->setHeight( settings.value("heightcode", 0.5).toDouble() );
@@ -693,21 +827,24 @@ void dibPunto::writeSettings()
     settings.setValue("drawelev", ptelev->checkOn());
     settings.setValue("drawnumber", ptnumber->checkOn());
     settings.setValue("drawcode", ptcode->checkOn());
-    settings.setValue("connectpoints", connectPoints->isChecked());
+    settings.setValue("closepoly", closepoly->isChecked());
+    settings.setValue("connectpoints", connectedit->currentIndex());
     settings.setValue("layer2d", pt2d->getLayer());
     settings.setValue("layer3d", pt3d->getLayer());
     settings.setValue("layerelev", ptelev->getLayer());
     settings.setValue("layernumber", ptnumber->getLayer());
     settings.setValue("layercode", ptcode->getLayer());
-    settings.setValue("styleelev", ptelev->getStyleIdx());
-    settings.setValue("stylenumber", ptnumber->getStyleIdx());
-    settings.setValue("stylecode", ptcode->getStyleIdx());
+    settings.setValue("styleelev", ptelev->getStyleStr());
+    settings.setValue("stylenumber", ptnumber->getStyleStr());
+    settings.setValue("stylecode", ptcode->getStyleStr());
     settings.setValue("heightelev", ptelev->getHeightStr());
     settings.setValue("heightnumber", ptnumber->getHeightStr());
     settings.setValue("heightcode", ptcode->getHeightStr());
     settings.setValue("separationelev", ptelev->getSeparationStr());
     settings.setValue("separationnumber", ptnumber->getSeparationStr());
     settings.setValue("separationcode", ptcode->getSeparationStr());
+    settings.setValue("separator", separedit->currentIndex());
+    settings.setValue("polyperline", polyperline->isChecked());
     settings.setValue("positionelev", ptelev->getPosition());
     settings.setValue("positionnumber", ptnumber->getPosition());
     settings.setValue("positioncode", ptcode->getPosition());
