@@ -138,7 +138,7 @@ void RS_ActionModifyTrim::mouseReleaseEvent(QMouseEvent* e) {
         case ChooseLimitEntity:
 			pPoints->limitCoord = mouse;
             limitEntity = se;
-            if (limitEntity && limitEntity->rtti() != RS2::EntityPolyline/*&& limitEntity->isAtomic()*/) {
+            if (limitEntity /*&& limitEntity->rtti() != RS2::EntityPolyline*//*&& limitEntity->isAtomic()*/) {
                 limitEntity->setHighlighted(true);
                 graphicView->drawEntity(limitEntity);
                 setStatus(ChooseTrimEntity);
